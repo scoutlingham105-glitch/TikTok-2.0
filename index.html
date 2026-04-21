@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TT-Intelligence · TikTok 全链路决策引擎</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+/* ── Reset & Base ────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: 'Nunito', sans-serif;
+  background: #0D0F1A;
+  color: #FFFFFF;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── CSS Variables ───────────────────────────────────────────────────────── */
+:root {
+  --red:      #FE2C55;
+  --red-dim:  rgba(254,44,85,0.15);
+  --red-glow: rgba(254,44,85,0.25);
+  --teal:     #25F4EE;
+  --teal-dim: rgba(37,244,238,0.12);
+  --dark0:    #0D0F1A;
+  --dark1:    #161823;
+  --dark2:    #1C1F2E;
+  --dark3:    #222638;
+  --dark4:    #2A2E45;
+  --border:   rgba(255,255,255,0.07);
+  --border2:  rgba(255,255,255,0.12);
+  --text:     #FFFFFF;
+  --muted:    rgba(255,255,255,0.45);
+  --muted2:   rgba(255,255,255,0.65);
+  --radius:   16px;
+  --radius-sm:10px;
+  --radius-xs: 8px;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--dark4); border-radius: 4px; }
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 48px 20px 80px;
+}
+
+/* ── Ambient background effect ───────────────────────────────────────────── */
+.bg-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 600px 400px at 20% 10%, rgba(254,44,85,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 350px at 80% 5%,  rgba(37,244,238,0.05) 0%, transparent 70%);
+}
+
+.page > * { position: relative; z-index: 1; }
+
+/* ── Header / Logo ───────────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 40px;
+}
+
+.logo-wrap {
+  position: relative;
+  width: 64px;
+  height: 64px;
+}
+.logo-wrap svg { display: block; }
+
+.logo-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  background: linear-gradient(100deg, #FE2C55 0%, #ff7096 45%, #25F4EE 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.logo-sub {
+  font-size: 13px;
+  color: var(--muted);
+  letter-spacing: 0.6px;
+}
+
+/* ── Server config bar ───────────────────────────────────────────────────── */
+.server-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--dark2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 14px;
+  margin-bottom: 28px;
+  width: 100%;
+  max-width: 720px;
+}
+.server-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.server-input {
+  flex: 1;
+  background: var(--dark4);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--teal);
+  outline: none;
+  transition: border-color .2s;
+}
+.server-input:focus { border-color: rgba(37,244,238,0.4); }
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #888; flex-shrink: 0;
+  transition: background .3s;
+}
+.status-dot.ok  { background: #22d95a; box-shadow: 0 0 6px rgba(34,217,90,0.5); }
+.status-dot.err { background: var(--red); box-shadow: 0 0 6px var(--red-glow); }
+.ping-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: var(--muted2);
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.ping-btn:hover { border-color: var(--teal); color: var(--teal); }
+
+/* ── Tab switcher ────────────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--dark2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 4px;
+  margin-bottom: 24px;
+}
+.tab {
+  padding: 9px 22px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all .2s;
+  font-family: 'Nunito', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.tab.active {
+  background: var(--dark4);
+  color: var(--text);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+}
+.tab:hover:not(.active) { color: var(--muted2); }
+.tab-icon { font-size: 15px; }
+
+/* ── Main input card ─────────────────────────────────────────────────────── */
+.input-card {
+  width: 100%;
+  max-width: 720px;
+  background: var(--dark2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 18px 18px 12px;
+  transition: border-color .25s, box-shadow .25s;
+}
+.input-card:focus-within {
+  border-color: rgba(254,44,85,0.4);
+  box-shadow: 0 0 0 3px rgba(254,44,85,0.07);
+}
+
+.input-row { display: flex; align-items: flex-end; gap: 10px; }
+.textarea-wrap { flex: 1; }
+
+textarea {
+  width: 100%;
+  min-height: 52px;
+  max-height: 220px;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: 'Nunito', sans-serif;
+  font-size: 15px;
+  color: var(--text);
+  line-height: 1.65;
+  padding: 2px 0;
+}
+textarea::placeholder { color: var(--muted); }
+
+.send-btn {
+  width: 44px; height: 44px;
+  border-radius: 13px;
+  border: none;
+  background: linear-gradient(135deg, #FE2C55, #c0003c);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: opacity .2s, transform .15s;
+}
+.send-btn:hover { opacity: 0.85; }
+.send-btn:active { transform: scale(0.95); }
+.send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+/* ── Bottom toolbar ──────────────────────────────────────────────────────── */
+.bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.tool-btns { display: flex; gap: 2px; }
+.tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  font-family: 'Nunito', sans-serif;
+  padding: 5px 9px;
+  border-radius: 8px;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.tool-btn:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+.tool-btn.active { color: var(--teal); }
+
+.char-count { font-size: 11px; color: var(--muted); }
+
+/* ── Extra params panel ──────────────────────────────────────────────────── */
+.extras {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 720px;
+  margin-top: 12px;
+}
+.extras.visible { display: flex; }
+.param-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.param-group { display: flex; flex-direction: column; gap: 5px; }
+.param-label { font-size: 12px; color: var(--muted); letter-spacing: 0.3px; }
+.param-input, .param-select {
+  background: var(--dark3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 13px;
+  font-size: 13px;
+  font-family: 'Nunito', sans-serif;
+  color: var(--text);
+  outline: none;
+  transition: border-color .2s;
+  width: 100%;
+  appearance: none;
+}
+.param-input:focus, .param-select:focus { border-color: rgba(37,244,238,0.4); }
+.param-input::placeholder { color: var(--muted); }
+.param-select option { background: var(--dark3); }
+
+/* ── Suggestion chips ────────────────────────────────────────────────────── */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  width: 100%;
+  max-width: 720px;
+  margin-top: 16px;
+}
+.chip {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .2s;
+  font-family: 'Nunito', sans-serif;
+}
+.chip:hover {
+  background: rgba(254,44,85,0.1);
+  border-color: rgba(254,44,85,0.35);
+  color: var(--text);
+}
+
+/* ── Output area ─────────────────────────────────────────────────────────── */
+.output-wrap {
+  display: none;
+  flex-direction: column;
+  width: 100%;
+  max-width: 720px;
+  margin-top: 20px;
+  gap: 0;
+}
+.output-wrap.visible { display: flex; }
+
+.output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.output-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.mode-badge.mock { background: rgba(37,244,238,0.12); color: #25F4EE; border: 1px solid rgba(37,244,238,0.22); }
+.mode-badge.live { background: rgba(254,44,85,0.12); color: #FE2C55; border: 1px solid rgba(254,44,85,0.22); }
+.pulse { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.25} }
+
+.output-actions { display: flex; gap: 6px; }
+.action-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 4px 11px;
+  font-size: 11px;
+  color: var(--muted2);
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  transition: all .2s;
+}
+.action-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.25); }
+
+/* ── Response tabs ───────────────────────────────────────────────────────── */
+.resp-tabs {
+  display: none;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+}
+.resp-tabs.visible { display: flex; }
+.resp-tab {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all .2s;
+  font-family: 'Nunito', sans-serif;
+  background: transparent;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+.resp-tab.active { color: var(--red); border-bottom-color: var(--red); }
+
+/* ── Output panels ───────────────────────────────────────────────────────── */
+.output-panels {
+  background: var(--dark2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.output-panels.has-tabs { border-top-left-radius: 0; }
+
+.output-panel { display: none; padding: 20px; }
+.output-panel.active { display: block; }
+
+/* Report text panel */
+.report-text {
+  font-size: 14px;
+  line-height: 1.8;
+  color: rgba(255,255,255,0.88);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'Nunito', sans-serif;
+  min-height: 60px;
+}
+
+/* Metrics grid panel */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.metric-card {
+  background: var(--dark3);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.metric-label { font-size: 11px; color: var(--muted); letter-spacing: 0.4px; margin-bottom: 6px; }
+.metric-value { font-size: 22px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+.metric-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.metric-value.red   { color: var(--red); }
+.metric-value.teal  { color: var(--teal); }
+.metric-value.green { color: #22d95a; }
+.metric-value.amber { color: #f9c74f; }
+
+/* Profit table panel */
+.profit-table { width: 100%; border-collapse: collapse; }
+.profit-table tr { border-bottom: 1px solid var(--border); }
+.profit-table tr:last-child { border-bottom: none; }
+.profit-table td {
+  padding: 9px 4px;
+  font-size: 13px;
+  color: var(--muted2);
+}
+.profit-table td:last-child {
+  text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--text);
+}
+.profit-table .total-row td { color: var(--text); font-weight: 700; font-size: 15px; border-top: 1px solid var(--border2); }
+.profit-table .total-row td:last-child { color: var(--teal); }
+.profit-table .neg { color: rgba(254,44,85,0.8) !important; }
+
+/* ── Thinking / loading ──────────────────────────────────────────────────── */
+.thinking {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  font-size: 13px;
+  color: var(--muted);
+  background: var(--dark2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 720px;
+  margin-top: 20px;
+}
+.thinking.visible { display: flex; }
+.dots span {
+  display: inline-block;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--red);
+  animation: dot 1.2s infinite;
+  margin-right: 2px;
+}
+.dots span:nth-child(2) { animation-delay: .2s; }
+.dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes dot { 0%,80%,100%{opacity:.15}40%{opacity:1} }
+
+/* ── Error box ───────────────────────────────────────────────────────────── */
+.error-box {
+  display: none;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 18px;
+  background: rgba(254,44,85,0.08);
+  border: 1px solid rgba(254,44,85,0.25);
+  border-radius: 14px;
+  font-size: 13px;
+  color: rgba(255,150,160,0.9);
+  line-height: 1.6;
+  width: 100%;
+  max-width: 720px;
+  margin-top: 20px;
+}
+.error-box.visible { display: flex; }
+.error-icon { flex-shrink: 0; margin-top: 1px; font-size: 15px; }
+
+/* ── File upload area ────────────────────────────────────────────────────── */
+.upload-area {
+  display: none;
+  border: 1px dashed var(--border2);
+  border-radius: 12px;
+  padding: 18px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s;
+  width: 100%;
+  max-width: 720px;
+  margin-top: 10px;
+}
+.upload-area.visible { display: block; }
+.upload-area:hover { border-color: rgba(254,44,85,0.4); background: var(--red-dim); }
+.upload-area.dragging { border-color: var(--red); background: var(--red-dim); }
+.upload-text { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.upload-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.upload-preview {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--muted2);
+  margin-top: 8px;
+}
+.upload-preview.visible { display: flex; }
+.upload-preview img { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; }
+.remove-file {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+  transition: color .2s;
+}
+.remove-file:hover { color: var(--red); }
+
+/* ── Toast ───────────────────────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--dark4);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 10px 20px;
+  font-size: 13px;
+  color: var(--muted2);
+  opacity: 0;
+  pointer-events: none;
+  transition: all .3s;
+  z-index: 999;
+  white-space: nowrap;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .param-row { grid-template-columns: 1fr; }
+  .tabs { gap: 2px; }
+  .tab { padding: 8px 14px; font-size: 12px; }
+}
+</style>
+</head>
+<body>
+
+<div class="bg-glow"></div>
+<div class="toast" id="toast"></div>
+
+<div class="page">
+
+  <!-- ── Header ── -->
+  <div class="header">
+    <div class="logo-wrap">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="18" fill="#1C1F2E"/>
+        <path d="M35 12H28v27a6.5 6.5 0 1 1-6.5-6.5v-6.8A13.5 13.5 0 1 0 35 39V26.5a20.5 20.5 0 0 0 12 3.9V23a14 14 0 0 1-12-11z" fill="white"/>
+        <path d="M36.5 12H35a14 14 0 0 0 12 11v7.4a20.5 20.5 0 0 1-12-3.9V39a13.5 13.5 0 1 1-13.5-13.5v6.8A6.5 6.5 0 1 0 28 39V12z" fill="#FE2C55" opacity="0.75"/>
+        <path d="M33 12h2a14 14 0 0 0 12 11v7.4a20.5 20.5 0 0 1-12-3.9V39a13.5 13.5 0 1 1-13.5-13.5v6.8A6.5 6.5 0 1 0 28 39V12z" fill="#25F4EE" opacity="0.5"/>
+      </svg>
+    </div>
+    <div class="logo-title">TT-Intelligence</div>
+    <div class="logo-sub">TikTok 全链路决策引擎 v2.0</div>
+  </div>
+
+  <!-- ── Server config ── -->
+  <div class="server-bar">
+    <span class="server-label">后端地址</span>
+    <input class="server-input" id="server-url" value="http://localhost:8080" placeholder="http://localhost:8080" />
+    <div class="status-dot" id="status-dot"></div>
+    <button class="ping-btn" onclick="pingServer()">检测连接</button>
+  </div>
+
+  <!-- ── Tabs ── -->
+  <div class="tabs">
+    <button class="tab active" data-tab="video" onclick="switchTab('video', this)">
+      <span class="tab-icon">🎬</span>视频拆解
+    </button>
+    <button class="tab" data-tab="account" onclick="switchTab('account', this)">
+      <span class="tab-icon">👤</span>账号审计
+    </button>
+    <button class="tab" data-tab="product" onclick="switchTab('product', this)">
+      <span class="tab-icon">🛍️</span>产品精算
+    </button>
+  </div>
+
+  <!-- ── Input card ── -->
+  <div class="input-card">
+    <div class="input-row">
+      <div class="textarea-wrap">
+        <textarea id="main-input" rows="2"
+          placeholder="粘贴 TikTok 视频链接，开始分析爆款逻辑..."
+          oninput="onInputChange(this)"
+          onkeydown="onKeyDown(event)"></textarea>
+      </div>
+      <button class="send-btn" id="send-btn" onclick="handleSend()">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M2 9h14M9 2l7 7-7 7" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="bottom-bar">
+      <div class="tool-btns">
+        <button class="tool-btn" id="img-btn" onclick="toggleUpload()" title="上传图片（产品模式）">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="1" y="1" width="12" height="12" rx="2.5" stroke="currentColor" stroke-width="1.2"/>
+            <circle cx="4.5" cy="4.5" r="1" fill="currentColor"/>
+            <path d="M1 9l3-3 2 2 3-3 4 4" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+          </svg>图片识别
+        </button>
+        <button class="tool-btn" id="mock-btn" onclick="toggleMock()" title="切换模式">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M7 4v3l2 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg><span id="mock-label">Mock 模式</span>
+        </button>
+        <button class="tool-btn" onclick="clearAll()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M2 4h10M5 4V3h4v1M5.5 6.5v4M8.5 6.5v4M3 4l.7 7.5h6.6L11 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>清空
+        </button>
+      </div>
+      <span class="char-count" id="char-count">0 / 500</span>
+    </div>
+  </div>
+
+  <!-- ── Image upload (product only) ── -->
+  <div class="upload-area" id="upload-area"
+    onclick="document.getElementById('file-input').click()"
+    ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+    <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleFileSelect(event)" />
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" style="margin:0 auto">
+      <path d="M14 4v14M8 10l6-6 6 6" stroke="rgba(255,255,255,0.3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M4 20v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2" stroke="rgba(255,255,255,0.3)" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+    <p class="upload-text">点击或拖拽上传产品图片</p>
+    <p class="upload-hint">支持 JPG、PNG、WEBP，自动识别产品信息</p>
+    <div class="upload-preview" id="upload-preview">
+      <img id="preview-img" src="" alt="preview" />
+      <span id="preview-name"></span>
+      <button class="remove-file" onclick="removeFile(event)">✕</button>
+    </div>
+  </div>
+
+  <!-- ── Extra params: account ── -->
+  <div class="extras" id="extras-account">
+    <div class="param-row">
+      <div class="param-group">
+        <span class="param-label">TikTok 账号 ID（可选，覆盖上方输入框）</span>
+        <input class="param-input" id="account-id" placeholder="@beautyguru99" />
+      </div>
+      <div class="param-group">
+        <span class="param-label">分析深度</span>
+        <select class="param-select" id="audit-depth">
+          <option value="30">标准分析（近 30 天）</option>
+          <option value="90">深度分析（近 90 天）</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Extra params: product ── -->
+  <div class="extras" id="extras-product">
+    <div class="param-row">
+      <div class="param-group">
+        <span class="param-label">产品售价（USD）*</span>
+        <input class="param-input" id="selling-price" type="number" placeholder="29.99" step="0.01" min="0" />
+      </div>
+      <div class="param-group">
+        <span class="param-label">头程费率（$/kg，选填）</span>
+        <input class="param-input" id="first-leg" type="number" placeholder="默认 $12/kg" step="0.5" min="0" />
+      </div>
+    </div>
+    <div class="param-row">
+      <div class="param-group">
+        <span class="param-label">尾程费用（$/件，选填）</span>
+        <input class="param-input" id="last-leg" type="number" placeholder="默认 $5/件" step="0.5" min="0" />
+      </div>
+      <div class="param-group">
+        <span class="param-label">平台佣金比例（%，选填）</span>
+        <input class="param-input" id="platform-fee" type="number" placeholder="默认 8%" step="0.5" min="0" max="100" />
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Suggestion chips ── -->
+  <div class="chips" id="chips"></div>
+
+  <!-- ── Thinking indicator ── -->
+  <div class="thinking" id="thinking">
+    <span class="dots"><span></span><span></span><span></span></span>
+    <span id="thinking-text">正在调用后端接口...</span>
+  </div>
+
+  <!-- ── Error box ── -->
+  <div class="error-box" id="error-box">
+    <span class="error-icon">⚠</span>
+    <span id="error-text"></span>
+  </div>
+
+  <!-- ── Output ── -->
+  <div class="output-wrap" id="output-wrap">
+    <div class="output-header">
+      <div class="output-meta">
+        <span class="mode-badge" id="mode-badge">
+          <span class="pulse"></span>
+          <span id="mode-label">Mock 模式</span>
+        </span>
+        <span id="resp-time" style="font-size:11px;color:var(--muted)"></span>
+      </div>
+      <div class="output-actions">
+        <button class="action-btn" onclick="copyReport()">复制报告</button>
+        <button class="action-btn" onclick="downloadReport()">下载 .txt</button>
+      </div>
+    </div>
+
+    <!-- response view tabs (for product: report | metrics | profit) -->
+    <div class="resp-tabs" id="resp-tabs">
+      <button class="resp-tab active" data-panel="report" onclick="switchPanel('report',this)">分析报告</button>
+      <button class="resp-tab" data-panel="metrics" onclick="switchPanel('metrics',this)">核心指标</button>
+      <button class="resp-tab" data-panel="profit" onclick="switchPanel('profit',this)">利润明细</button>
+    </div>
+
+    <div class="output-panels" id="output-panels">
+      <!-- Report panel -->
+      <div class="output-panel active" id="panel-report">
+        <div class="report-text" id="report-text"></div>
+      </div>
+      <!-- Metrics panel -->
+      <div class="output-panel" id="panel-metrics">
+        <div class="metrics-grid" id="metrics-grid"></div>
+      </div>
+      <!-- Profit panel -->
+      <div class="output-panel" id="panel-profit">
+        <table class="profit-table" id="profit-table"></table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════ */
+let currentTab   = 'video';
+let mockMode     = true;
+let uploadFile   = null;
+let isLoading    = false;
+let lastReport   = '';
+let lastResponse = null;
+
+const API_BASE = () => document.getElementById('server-url').value.replace(/\/$/, '');
+
+/* ═══════════════════════════════════════════════════════════
+   CHIPS CONFIG
+═══════════════════════════════════════════════════════════ */
+const CHIPS = {
+  video:   ['粘贴视频链接即可分析', '帮我识别爆款钩子类型', '生成3组高转化文案', '输出完整分镜脚本'],
+  account: ['分析账号粉丝画像', '评估商业变现潜力', '推荐最适合带货品类', '给出账号增粉策略'],
+  product: ['粘贴 Amazon 链接精算利润', '分析产品 Google 趋势', '识别爆款元素材风格', '评估竞争红海程度'],
+};
+
+const PLACEHOLDERS = {
+  video:   '粘贴 TikTok 视频链接，开始分析爆款逻辑...',
+  account: '输入 TikTok 账号 ID（如 @beautyguru），或直接描述问题...',
+  product: '粘贴 Amazon / TikTok Shop 产品链接，或输入产品描述...',
+};
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', () => {
+  renderChips('video');
+  pingServer();
+});
+
+/* ═══════════════════════════════════════════════════════════
+   TAB SWITCH
+═══════════════════════════════════════════════════════════ */
+function switchTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('main-input').placeholder = PLACEHOLDERS[tab];
+
+  // show/hide extra param panels
+  ['account', 'product'].forEach(t => {
+    document.getElementById('extras-' + t).classList.toggle('visible', t === tab);
+  });
+
+  // image upload only for product
+  const imgBtn = document.getElementById('img-btn');
+  imgBtn.style.opacity  = tab === 'product' ? '1' : '0.35';
+  imgBtn.style.pointerEvents = tab === 'product' ? 'auto' : 'none';
+  if (tab !== 'product') {
+    document.getElementById('upload-area').classList.remove('visible');
+    removeFile(null, true);
+  }
+
+  renderChips(tab);
+  hideOutput();
+  hideError();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CHIPS
+═══════════════════════════════════════════════════════════ */
+function renderChips(tab) {
+  const el = document.getElementById('chips');
+  el.innerHTML = CHIPS[tab].map(c =>
+    `<div class="chip" onclick="fillChip('${c.replace(/'/g, "\\'")}')"> ${c}</div>`
+  ).join('');
+}
+
+function fillChip(text) {
+  const inp = document.getElementById('main-input');
+  inp.value = text;
+  onInputChange(inp);
+  inp.focus();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INPUT
+═══════════════════════════════════════════════════════════ */
+function onInputChange(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 220) + 'px';
+  document.getElementById('char-count').textContent = el.value.length + ' / 500';
+}
+
+function onKeyDown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOCK TOGGLE
+═══════════════════════════════════════════════════════════ */
+function toggleMock() {
+  mockMode = !mockMode;
+  document.getElementById('mock-label').textContent = mockMode ? 'Mock 模式' : 'Live 模式';
+  document.getElementById('mock-btn').classList.toggle('active', mockMode);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FILE UPLOAD
+═══════════════════════════════════════════════════════════ */
+function toggleUpload() {
+  if (currentTab !== 'product') return;
+  const area = document.getElementById('upload-area');
+  area.classList.toggle('visible');
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('upload-area').classList.add('dragging');
+}
+function handleDragLeave() {
+  document.getElementById('upload-area').classList.remove('dragging');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-area').classList.remove('dragging');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) setFile(file);
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) setFile(file);
+}
+function setFile(file) {
+  uploadFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('preview-img').src = ev.target.result;
+    document.getElementById('preview-name').textContent = file.name;
+    document.getElementById('upload-preview').classList.add('visible');
+  };
+  reader.readAsDataURL(file);
+}
+function removeFile(e, silent = false) {
+  if (e) e.stopPropagation();
+  uploadFile = null;
+  document.getElementById('file-input').value = '';
+  document.getElementById('preview-img').src = '';
+  document.getElementById('preview-name').textContent = '';
+  document.getElementById('upload-preview').classList.remove('visible');
+  if (!silent) document.getElementById('upload-area').classList.remove('visible');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CLEAR
+═══════════════════════════════════════════════════════════ */
+function clearAll() {
+  const inp = document.getElementById('main-input');
+  inp.value = ''; inp.style.height = 'auto';
+  document.getElementById('char-count').textContent = '0 / 500';
+  removeFile(null, true);
+  hideOutput(); hideError();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SERVER HEALTH CHECK
+═══════════════════════════════════════════════════════════ */
+async function pingServer() {
+  const dot = document.getElementById('status-dot');
+  dot.className = 'status-dot';
+  try {
+    const r = await fetch(API_BASE() + '/api/v1/health', { signal: AbortSignal.timeout(4000) });
+    const data = await r.json();
+    dot.className = 'status-dot ok';
+    showToast(`后端连接成功 · ${data.model || 'gpt-4o'} · ${data.debug_mode ? 'Mock' : 'Live'}`);
+  } catch {
+    dot.className = 'status-dot err';
+    showToast('后端连接失败，请检查服务是否启动');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MAIN SEND
+═══════════════════════════════════════════════════════════ */
+async function handleSend() {
+  if (isLoading) return;
+  const input = document.getElementById('main-input').value.trim();
+
+  // validation
+  if (currentTab === 'video' && !input) { showError('请输入 TikTok 视频链接'); return; }
+  if (currentTab === 'account' && !input && !document.getElementById('account-id').value.trim()) {
+    showError('请输入账号 ID 或问题描述'); return;
+  }
+  if (currentTab === 'product' && !input && !uploadFile) {
+    showError('请输入产品链接或上传图片'); return;
+  }
+
+  setLoading(true);
+  hideOutput(); hideError();
+
+  const t0 = Date.now();
+  try {
+    let result;
+    if      (currentTab === 'video')   result = await callVideoAPI(input);
+    else if (currentTab === 'account') result = await callAccountAPI(input);
+    else if (currentTab === 'product') result = await callProductAPI(input);
+
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+    renderOutput(result, elapsed);
+  } catch (err) {
+    showError(`请求失败：${err.message}（后端是否已启动？可先用 Mock 模式测试）`);
+  } finally {
+    setLoading(false);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   API CALLS
+═══════════════════════════════════════════════════════════ */
+async function callVideoAPI(url) {
+  const res = await fetch(API_BASE() + '/api/v1/video/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, mock: mockMode }),
+  });
+  if (!res.ok) throw new Error(await extractError(res));
+  return { type: 'video', data: await res.json() };
+}
+
+async function callAccountAPI(input) {
+  const userId = document.getElementById('account-id').value.trim() || input;
+  const res = await fetch(API_BASE() + '/api/v1/account/audit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, mock: mockMode }),
+  });
+  if (!res.ok) throw new Error(await extractError(res));
+  return { type: 'account', data: await res.json() };
+}
+
+async function callProductAPI(input) {
+  const sellingPrice = parseFloat(document.getElementById('selling-price').value) || 29.99;
+
+  // image upload path
+  if (uploadFile) {
+    const form = new FormData();
+    form.append('image', uploadFile);
+    form.append('selling_price', sellingPrice);
+    const res = await fetch(API_BASE() + '/api/v1/product/analyze-image', {
+      method: 'POST',
+      body: form,
+    });
+    if (!res.ok) throw new Error(await extractError(res));
+    return { type: 'product', data: await res.json() };
+  }
+
+  // URL path
+  const body = {
+    origin_url: input,
+    selling_price: sellingPrice,
+  };
+  const fl = document.getElementById('first-leg').value;
+  const ll = document.getElementById('last-leg').value;
+  const pf = document.getElementById('platform-fee').value;
+  if (fl) body.first_leg_rate = parseFloat(fl);
+  if (ll) body.last_leg_fee   = parseFloat(ll);
+  if (pf) body.platform_fee_rate = parseFloat(pf) / 100;
+
+  const res = await fetch(API_BASE() + '/api/v1/product/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await extractError(res));
+  return { type: 'product', data: await res.json() };
+}
+
+async function extractError(res) {
+  try {
+    const j = await res.json();
+    return j.detail || res.statusText;
+  } catch { return res.statusText; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER OUTPUT
+═══════════════════════════════════════════════════════════ */
+function renderOutput(result, elapsed) {
+  lastResponse = result;
+  const { type, data } = result;
+
+  // mode badge
+  const badge    = document.getElementById('mode-badge');
+  const modeLbl  = document.getElementById('mode-label');
+  badge.className = 'mode-badge ' + (mockMode ? 'mock' : 'live');
+  modeLbl.textContent = mockMode ? 'Mock 模式' : 'Live 模式';
+  document.getElementById('resp-time').textContent = `耗时 ${elapsed}s`;
+
+  // report
+  let reportText = '';
+
+  if (type === 'video') {
+    const v = data.video;
+    reportText = formatVideoReport(v, data.analysis_report);
+    hidePanelTabs();
+    lastReport = data.analysis_report;
+
+  } else if (type === 'account') {
+    reportText = formatAccountReport(data);
+    hidePanelTabs();
+    lastReport = data.audit_report;
+
+  } else if (type === 'product') {
+    reportText = data.analysis_report;
+    lastReport = data.analysis_report;
+    showPanelTabs();
+    renderMetrics(data);
+    renderProfitTable(data.profit_model);
+  }
+
+  document.getElementById('report-text').textContent = reportText;
+  document.getElementById('output-wrap').classList.add('visible');
+
+  // scroll to output
+  document.getElementById('output-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ── formatters ─────────────────────────────────────────── */
+function formatVideoReport(v, report) {
+  const pct = v.views > 0 ? ((v.likes / v.views) * 100).toFixed(2) : '0.00';
+  return [
+    `📊 视频元数据`,
+    `ID: ${v.video_id}  |  作者: ${v.author}  |  赛道: ${v.track}`,
+    `播放: ${fmt(v.views)}  |  点赞: ${fmt(v.likes)}  |  评论: ${fmt(v.comments)}  |  分享: ${fmt(v.shares)}`,
+    `点赞率: ${pct}%  |  发布: ${v.publish_date}`,
+    '',
+    '─'.repeat(52),
+    '',
+    report,
+  ].join('\n');
+}
+
+function formatAccountReport(data) {
+  const a  = data.account;
+  const me = data.monetization_estimate;
+  return [
+    `👤 账号核心指标`,
+    `账号: ${a.username}  |  粉丝: ${fmt(a.followers)}`,
+    `30日增粉率: ${a.follower_growth_rate_30d}%  |  互动率: ${a.avg_engagement_rate}%`,
+    `播赞比: ${a.play_like_ratio}  |  挂车比: ${(a.cart_video_ratio * 100).toFixed(0)}%`,
+    `商业价值评分: ${data.commercial_score} / 100`,
+    `推荐品类: ${data.recommended_categories.join(' · ')}`,
+    '',
+    `💵 单条视频 GMV 预估`,
+    `乐观: $${fmt(me.optimistic_gmv_usd)}  |  基准: $${fmt(me.base_gmv_usd)}  |  保守: $${fmt(me.conservative_gmv_usd)}`,
+    '',
+    '─'.repeat(52),
+    '',
+    data.audit_report,
+  ].join('\n');
+}
+
+/* ── metrics grid (product) ─────────────────────────────── */
+function renderMetrics(data) {
+  const p   = data.product;
+  const pm  = data.profit_model;
+  const cards = [
+    { label: '净利润', value: `$${pm.net_profit.toFixed(2)}`, sub: `ROI ${pm.roi_pct.toFixed(1)}%`, cls: pm.net_profit > 0 ? 'green' : 'red' },
+    { label: '选品评分', value: `${data.selection_score}`, sub: '满分 10 分', cls: data.selection_score >= 7 ? 'green' : data.selection_score >= 5 ? 'amber' : 'red' },
+    { label: 'Google 趋势', value: `${p.google_trend_score}`, sub: p.trend_direction, cls: p.trend_direction === '上升' ? 'teal' : 'amber' },
+    { label: 'Amazon 月销', value: fmt(p.amazon_monthly_sales), sub: `评分 ${p.amazon_rating}⭐`, cls: 'teal' },
+    { label: '盈亏平衡价', value: `$${pm.breakeven_price.toFixed(2)}`, sub: `当前售价 $${pm.selling_price.toFixed(2)}`, cls: 'amber' },
+    { label: 'Amazon 评价', value: fmt(p.amazon_review_count), sub: '竞争参考', cls: p.amazon_review_count < 500 ? 'green' : 'red' },
+  ];
+  document.getElementById('metrics-grid').innerHTML = cards.map(c => `
+    <div class="metric-card">
+      <div class="metric-label">${c.label}</div>
+      <div class="metric-value ${c.cls}">${c.value}</div>
+      <div class="metric-sub">${c.sub}</div>
+    </div>
+  `).join('');
+}
+
+/* ── profit table (product) ─────────────────────────────── */
+function renderProfitTable(pm) {
+  const rows = [
+    { label: '售价', value: `$${pm.selling_price.toFixed(2)}`, neg: false },
+    { label: '采购成本', value: `-$${pm.purchase_cost.toFixed(2)}`, neg: true },
+    { label: '头程运费', value: `-$${pm.first_leg_cost.toFixed(2)}`, neg: true },
+    { label: '尾程运费', value: `-$${pm.last_leg_cost.toFixed(2)}`, neg: true },
+    { label: '平台佣金（8%）', value: `-$${pm.platform_fee.toFixed(2)}`, neg: true },
+    { label: '退货预留（5%）', value: `-$${pm.return_reserve.toFixed(2)}`, neg: true },
+  ];
+  const html = rows.map(r => `
+    <tr>
+      <td>${r.label}</td>
+      <td class="${r.neg ? 'neg' : ''}">${r.value}</td>
+    </tr>
+  `).join('') + `
+    <tr class="total-row">
+      <td>净利润</td>
+      <td>$${pm.net_profit.toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td>ROI（以采购成本为基准）</td>
+      <td>${pm.roi_pct.toFixed(1)}%</td>
+    </tr>
+    <tr>
+      <td>盈亏平衡售价</td>
+      <td>$${pm.breakeven_price.toFixed(2)}</td>
+    </tr>
+  `;
+  document.getElementById('profit-table').innerHTML = html;
+}
+
+/* ── panel tab switching ────────────────────────────────── */
+function showPanelTabs() {
+  document.getElementById('resp-tabs').classList.add('visible');
+  document.getElementById('output-panels').classList.add('has-tabs');
+  switchPanel('report', document.querySelector('.resp-tab[data-panel="report"]'));
+}
+function hidePanelTabs() {
+  document.getElementById('resp-tabs').classList.remove('visible');
+  document.getElementById('output-panels').classList.remove('has-tabs');
+  document.querySelectorAll('.output-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-report').classList.add('active');
+}
+function switchPanel(panel, el) {
+  document.querySelectorAll('.resp-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.output-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + panel).classList.add('active');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UI HELPERS
+═══════════════════════════════════════════════════════════ */
+function setLoading(on) {
+  isLoading = on;
+  document.getElementById('send-btn').disabled = on;
+  document.getElementById('thinking').classList.toggle('visible', on);
+  document.getElementById('thinking-text').textContent =
+    currentTab === 'video'   ? '正在解析视频并调用 AI 分析...' :
+    currentTab === 'account' ? '正在获取账号数据并生成报告...' :
+                               '正在抓取产品数据并运行利润精算...';
+}
+
+function hideOutput() { document.getElementById('output-wrap').classList.remove('visible'); }
+function hideError()  { document.getElementById('error-box').classList.remove('visible'); }
+
+function showError(msg) {
+  document.getElementById('error-text').textContent = msg;
+  document.getElementById('error-box').classList.add('visible');
+  document.getElementById('error-box').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* ── copy / download ────────────────────────────────────── */
+function copyReport() {
+  const text = document.getElementById('report-text').textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('报告已复制到剪贴板'));
+}
+
+function downloadReport() {
+  const text = document.getElementById('report-text').textContent;
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: `tt-intelligence-${currentTab}-${Date.now()}.txt`,
+  });
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('报告已下载');
+}
+
+/* ── toast ──────────────────────────────────────────────── */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ── number formatter ───────────────────────────────────── */
+function fmt(n) {
+  return Number(n).toLocaleString('en-US');
+}
+</script>
+</body>
+</html>
