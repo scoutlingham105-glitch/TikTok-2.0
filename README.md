@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/26955773/README.md)
 # TikTok 全链路决策引擎 v2.0 (TT-Intelligence)
 
 > 从视频 URL 到利润精算的全流程闭环工具，支持 AI 自动化分析报告生成。
