@@ -1,6 +1,7 @@
 # TikTok 全链路决策引擎 v2.0 (TT-Intelligence)
-
 > 从视频 URL 到利润精算的全流程闭环工具，支持 AI 自动化分析报告生成。
+
+<img width="1920" height="910" alt="ScreenShot_2026-04-22_140439_561" src="https://github.com/user-attachments/assets/1d6465fd-9f1d-44be-86bd-69edd72fc7c2" />
 
 ## 功能模块
 
